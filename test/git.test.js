@@ -3,6 +3,7 @@ import tempy from 'tempy';
 import {
   gitTagHead,
   isRefInHistory,
+  isRefExists,
   fetch,
   gitHead,
   repoUrl,
@@ -64,7 +65,7 @@ test.serial('Unshallow and fetch repository', async t => {
   // Verify the shallow clone contains only one commit
   t.is((await gitGetCommits()).length, 1);
 
-  await fetch(repo);
+  await fetch();
 
   // Verify the shallow clone contains all the commits
   t.is((await gitGetCommits()).length, 2);
@@ -72,10 +73,10 @@ test.serial('Unshallow and fetch repository', async t => {
 
 test.serial('Do not throw error when unshallow a complete repository', async t => {
   // Create a git repository, set the current working directory at the root of the repo
-  const repo = await gitRepo();
+  await gitRepo();
   // Add commits to the master branch
   await gitCommits(['First']);
-  await t.notThrows(fetch(repo));
+  await t.notThrows(fetch());
 });
 
 test.serial('Fetch all tags on a detached head repository', async t => {
@@ -90,7 +91,7 @@ test.serial('Fetch all tags on a detached head repository', async t => {
   await gitPush();
   await gitDetachedHead(repo, commit.hash);
 
-  await fetch(repo);
+  await fetch();
 
   t.deepEqual((await gitTags()).sort(), ['v1.0.0', 'v1.0.1', 'v1.1.0'].sort());
 });
@@ -106,9 +107,25 @@ test.serial('Verify if the commit `sha` is in the direct history of the current 
   const otherCommits = await gitCommits(['Second']);
   await gitCheckout('master', false);
 
-  t.true(await isRefInHistory(commits[0].hash));
-  t.falsy(await isRefInHistory(otherCommits[0].hash));
-  await t.throws(isRefInHistory('non-existant-sha'));
+  t.true(await isRefInHistory(commits[0].hash, 'master'));
+  t.falsy(await isRefInHistory(otherCommits[0].hash, 'master'));
+  t.falsy(await isRefInHistory(otherCommits[0].hash, 'missing-branch'));
+  await t.throws(isRefInHistory('non-existant-sha', 'master'));
+});
+
+test.serial('Verify if a branch exists', async t => {
+  // Create a git repository, set the current working directory at the root of the repo
+  await gitRepo();
+  // Add commits to the master branch
+  await gitCommits(['First']);
+  // Create the new branch 'other-branch' from master
+  await gitCheckout('other-branch');
+  // Add commits to the 'other-branch' branch
+  await gitCommits(['Second']);
+
+  t.true(await isRefExists('master'));
+  t.true(await isRefExists('other-branch'));
+  t.falsy(await isRefExists('next'));
 });
 
 test.serial('Get the commit sha for a given tag or falsy if the tag does not exists', async t => {

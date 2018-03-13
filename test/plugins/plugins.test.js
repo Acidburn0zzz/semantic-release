@@ -134,7 +134,7 @@ test('Merge global options with plugin options', async t => {
     t.context.logger
   );
 
-  const result = await plugins.verifyRelease();
+  const [result] = await plugins.verifyRelease();
 
   t.deepEqual(result.pluginConfig, {localOpt: 'local', globalOpt: 'global', otherOpt: 'locally-defined'});
 });
@@ -144,6 +144,8 @@ test('Throw an error if plugins configuration are missing a path for plugin pipe
 
   t.is(errors[0].name, 'SemanticReleaseError');
   t.is(errors[0].code, 'EPLUGINCONF');
+  t.truthy(errors[0].message);
+  t.truthy(errors[0].details);
 });
 
 test('Throw an error if an array of plugin configuration is missing a path for plugin pipeline', t => {
@@ -153,4 +155,6 @@ test('Throw an error if an array of plugin configuration is missing a path for p
 
   t.is(errors[0].name, 'SemanticReleaseError');
   t.is(errors[0].code, 'EPLUGINCONF');
+  t.truthy(errors[0].message);
+  t.truthy(errors[0].details);
 });

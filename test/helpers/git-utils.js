@@ -1,7 +1,7 @@
 import tempy from 'tempy';
 import execa from 'execa';
 import fileUrl from 'file-url';
-import pReduce from 'p-reduce';
+import pEachSeries from 'p-each-series';
 import gitLogParser from 'git-log-parser';
 import getStream from 'get-stream';
 
@@ -27,11 +27,11 @@ export async function gitRepo(withRemote, branch = 'master') {
   const dir = tempy.directory();
 
   process.chdir(dir);
-  await execa('git', ['init'].concat(withRemote ? ['--bare'] : []));
+  await execa('git', ['init', ...(withRemote ? ['--bare'] : [])]);
 
   if (withRemote) {
     await initBareRepo(fileUrl(dir), branch);
-    await gitShallowClone(fileUrl(dir));
+    await gitShallowClone(fileUrl(dir), branch);
   } else {
     await gitCheckout(branch);
   }
@@ -66,15 +66,8 @@ export async function initBareRepo(repositoryUrl, branch = 'master') {
  * @returns {Array<Commit>} The created commits, in reverse order (to match `git log` order).
  */
 export async function gitCommits(messages) {
-  await pReduce(
-    messages,
-    async (commits, msg) => {
-      const stdout = await execa.stdout('git', ['commit', '-m', msg, '--allow-empty', '--no-gpg-sign']);
-      const [, hash] = /^\[(?:\w+)\(?.*?\)?(\w+)\] .+(?:\n|$)/.exec(stdout);
-      commits.push(hash);
-      return commits;
-    },
-    []
+  await pEachSeries(messages, async message =>
+    execa.stdout('git', ['commit', '-m', message, '--allow-empty', '--no-gpg-sign'])
   );
   return (await gitGetCommits()).slice(0, messages.length);
 }
@@ -211,4 +204,31 @@ export async function gitCommitTag(gitHead) {
  */
 export async function gitPush(repositoryUrl = 'origin', branch = 'master') {
   await execa('git', ['push', '--tags', repositoryUrl, `HEAD:${branch}`]);
+}
+
+/**
+ * Merge a branch into the current one with `git merge`.
+ *
+ * @param {String} ref The ref to merge.
+ */
+export async function merge(ref) {
+  await execa('git', ['merge', '--no-ff', ref]);
+}
+
+/**
+ * Merge a branch into the current one with `git merge --ff`.
+ *
+ * @param {String} ref The ref to merge.
+ */
+export async function mergeFf(ref) {
+  await execa('git', ['merge', '--ff', ref]);
+}
+
+/**
+ * Merge a branch into the current one with `git rebase`.
+ *
+ * @param {String} ref The ref to merge.
+ */
+export async function rebase(ref) {
+  await execa('git', ['rebase', ref]);
 }
